@@ -1,0 +1,522 @@
+---
+title: "R Programming Notes"
+author: "Yaxin"
+date: "Thursday, August 21, 2014"
+output: html_document
+---
+
+###Contents
+* Get Data from a Website(HTML)
+* How to Connect to MySQL
+* Loop Functions
+* Subseting and Sorting
+* Summarize Data
+* Create New Variables
+* Reshape Data
+* Merging data
+* Edit Text Variables
+* Regular Expressions
+* Dealing with Dates
+
+
+###Get Data from a Website(HTML)
+```{r,eval=FALSE}
+con <- url("http://www.northeastern.com","r")
+x <- readLines(con)
+```
+
+
+###How to Connect to MySQL
+
+1. **Install the RMySQL package first:**
+
+* Mac/Linux: <http://cran.r-project.org/web/packages/RMySQL/INSTALL>
+* Win7: <http://www.r-bloggers.com/installing-the-rmysql-package-on-windows-7/>
+
+2. **Load the library:**
+```{r,eval=FALSE}
+library(DBI)
+library(RMySQL)
+```
+
+3. **Connect and list the databases:**
+```{r,eval=FALSE}
+ucscDb <- dbConnect(MySQL(), user="genome", host="genome-mysql.cse.ucsc.edu")
+result <- dbGetQuery(ucscDb,"show databases;");
+dbDisconnect(ucscDb); #Don't forget to disconnect!
+```
+
+4. **Connect to certain database and list tables:**
+```{r,eval=FALSE}
+hg19 <- dbConnect(MySQL(),user="genome",db="hg19",host="genome-mysql.cse.ucsc.edu")
+allTables<-dbListTables(hg19)
+```
+
+5. **Get dimensions of a specific table:**
+```{r,eval=FALSE}
+dbListFields(hg19,"affyU133Plus2")
+dbGetQuery(hg19,"select count(*) from affyU133Plus2")
+## Note: hg19 is a database, "affyU133Plus2" is a table.
+```
+
+6. **Read the table:**
+```{r,eval=FALSE}
+affyData <- dbReadTable(hg19, "affyU133Plus2")
+## affyData is a data frame.
+```
+
+7. **Select a specific subset:**
+```{r,eval=FALSE}
+query <- dbSendQuery(hg19, "select * from affyU133Plus2 where misMatches between 1 and 3")
+affyMis <- fetch(query);quantile(affyMis$misMatches);
+affyMisSmall <- fetch(query,n=10); dbClearResult(query);
+```
+
+
+###Loop Functions
+
+1. **Loop Functions Overview:**
+```{r,eval=FALSE}
+#1. lapply: Loop over a list and evaluate a function on each element.
+#2.	sapply: Same as lapply but try to simplify the result.
+#3.	apply: Apply a function over the margins of an array.
+#4. tapply: Apply a function over subsets of a vector.
+#5. mapply: Multivariate version of lapply.
+```
+
+2. **Usage of lapply:**
+```{r}
+x <- list(c(1,2,3,4),c(3,4,5),c(6,7,8))
+print(lapply(x,mean))
+x <- 1:4
+print(lapply(x, runif)) #The uniform distribution
+                        #runif(n,min=0,max=1)
+print(lapply(x, runif, min=0, max=10)) #With arguments of runif
+
+# You can also use self-defined functions:
+x <- list(a=matrix(1:4,2,2), b=matrix(1:6,3,2))
+print(lapply(x,function(elt) {
+    elt[,1] #Extract the first column of each matrix
+}))
+```
+
+3. **Usage of sapply:**
+
+Almost the same as lapply. Differs in the outputs.
+
+4. **Usage of apply:**
+```{r}
+print(str(apply))
+
+x <- matrix(rnorm(200),20,10)
+# Keep the 2nd dimension(10 columns). 
+# So the function will collapse the rows
+# (Calculate the mean of each row)
+print(apply(x, 2, mean))
+```
+
+_Some other functions taht are much faster and shortcuts of apply_
+```{r,eval=FALSE}
+rowSums == apply(x,1,sum)
+rowMeans == apply(x,1,mean)
+colSums == apply(x,2,sum)
+colMeans == apply(x,2,mean)
+```
+
+Three-dimension array using apply:
+```{r}
+a <- array(rnorm(2*2*10),c(2,2,10))
+print(head(a, n=3))
+print(apply(a, c(1,2), mean))
+```
+
+
+5. **Usage of tapply:**
+```{r,echo=FALSE}
+print(str(tapply))
+```
+
+
+6. **Usage of split function:**
+
+The split function can take a vector, working like tapply, but returns a list!
+We can use the split function in conjunction with lapply/sapply.
+```{r,eval=FALSE}
+library(datasets)
+s <- split(airquality, airquality$Month) # The attribute "Month" is treated as a factor.
+lapply(s,function(x) colMeans(x[,c("Ozone","Solar.R","Wind")]))
+```
+
+7. **Levels interaction:**
+```{r}
+f1 <- gl(2,5)
+print(f1)
+f2 <- gl(5,2)
+print(f2)
+print(interaction(f1,f2))
+```
+
+
+
+###Subseting and Sorting
+```{r,eval=FALSE}
+## Sample to make a data frame
+set.seed(123)
+x <- data.frame(var1=sample(1:5),
+                var2=sample(6:10))
+x <- x[sample(1:5),] #Reorder the rows
+x$var2[c(1,3)] <- NA
+
+## Dealing with missing values
+x[which(x$var2 > 8),]
+
+## Sorting
+sort(x$var1, decreasing=T)
+sort(x$var2, na.last=T)
+
+## Ordering by the first column
+x[order(x$var1),]
+
+## Ordering with package `plyr`
+library(plyr)
+arrange(x,var1)
+arrange(x,desc(var1))
+
+## 1st method: Adding rows and columns to a data frame:
+x$var4 <- rnorm(5)
+## 2nd method:
+y <- cbind(x,rnorm(5))
+```
+
+
+
+###Summarize Data
+
+1. **Download data from the web:**
+```{r,eval=FALSE}
+if(!file.exists("./data")) {dir.create("./data")}
+fileUrl <- https://data.baltimorecity.gov/api/views/k5ry-ef3g/rows.csv?accessType=DOWNLOAD
+download.file(fileUrl,destfile="./data/restaurants.csv",method="auto")
+restData <- read.csv("./data/restaurants.csv")
+```
+
+
+2. **Quantiles of quantitative variables:**
+```{r,eval=FALSE}
+quantile(restData$councilDistrict,na.rm=T)
+quantile(restData$councilDistrict,probs = c(0.5,0.75.0.9)
+```
+
+
+3. **Make a table:**
+```{r,eval=FALSE}
+table(restData$zipCode,useNA ="ifany") 
+# Give the count of each value. "ifany" make sure you don't miss any NAs.
+table(restData$councilDistrict,restData$zipCode)
+```
+
+
+4. **Cehck for missing values:**
+```{r,eval=FALSE}
+sum(is.na(restData$councilDistrict))
+any(is.na(restData$zipCode)) # To check if any of these values is NA
+all(restData$zipCode > 0)
+```
+
+
+5. **Values with specific characteristics:**
+```{r,eval=FALSE}
+table(restData$zipCode %in% c("21212","21213"))
+restData[restData$zipCode %in% c("21212","21213"),] # Select those rows you want.
+```
+
+
+6. **Cross tabs:**
+```{r,results='asis'}
+data(UCBAdmissions) #It is a table
+DF <- as.data.frame(UCBAdmissions) # load the built-in dataset
+print((xtabs(Freq~Gender + Admit, data=DF)))
+```
+
+
+7. **Flat tables:**
+```{r}
+data(warpbreaks)
+warpbreaks$replicate <- rep(1:9, len = 54)
+xt = xtabs(breaks ~., data=warpbreaks) # Break down by all variables
+print(ftable(xt)) # Make it look better than xtabs.
+```
+
+
+8. **Size of a dataset:**
+```{r,eval=FALSE}
+object.size(warpbreaks)
+print(objrect.size(warpbreads), units="Mb")
+```
+
+
+
+###Create New Variables
+
+1. **Create sequences:**
+```{r,eval=FALSE}
+s1 <- seq(1,10,by=2) # From 1 to 10 increase by 2
+s2 <- seq(1,10,length = 3) # From 1 to 10, generating 3 numbers
+x <- c(1,3,76,2,4,12)
+s3 <- se1(along=x); s3 # Create an index vector along x
+```
+
+
+2. **Create binary variables:**
+```{r,eval=FALSE}
+restData$zipWrong = ifelse(restData$zipCode < 0, T,F)
+```
+
+
+3. **Create categorical variables:**
+```{r,eval=FALSE}
+> restData$zipGroups = cut(restData$zipCode, breaks=quantile(restData$zipCode))
+> table(restData$zipGroups)
+
+(-2.123e+04,2.12e+04]  (2.12e+04,2.122e+04] (2.122e+04,2.123e+04] 
+                  337                   375                   282 
+(2.123e+04,2.129e+04] 
+                  332 
+> table(restData$zipGroups,restData$zipCode) # To see which zipcode fall into which group
+# Cutting creates factor
+
+# Easier cutting:
+library(Hmisc)
+restData$zipGroups = cut2(restData$zipCode,g=4)
+```
+
+
+4. **Methods to manipulate levels:**
+```{r,eval=FALSE}
+yesno <- sample(c("yes","no"),size = 10, replace=T)
+yesnofac = factor(yesno)
+relevel(yesnofac,ref="yes") # Relevel the factor, use the "yes" as the main level?
+fac = factor(yesno,levels = c("yes","no")) # Another way is to assign at first.
+as.numeric(fac) # Levels are represented in numbers.
+```
+
+
+5. **Common transforms:**
+```{r,eval=FALSE}
+abs(x)
+sqrt(x)
+ceiling(x), floor(x)
+round(x, digits=n) #round(3.475, digits = 2) is 3.48
+signif(x, digits=n) #signif(3.475,digits=2) is 3.5
+cos(x)  ...
+log(x)
+log2(x), log10(x)
+exp(X)
+```
+
+
+
+###Reshape Data
+The goal is tidy data:
+
+1. Each variable forms a column
+2. Each observation forms a row
+3. Each table/file stores data about one kind of observation (e.g. People/hospitals)
+
+You need to load the package `reshape2`.
+```{r}
+## Melt data frames:
+library(reshape2)
+data(mtcars)
+mtcars$carname <- rownames(mtcars)
+carMelt <- melt(mtcars,id=c("carname","gear","cyl"),measure.vars=c("mpg","hp"))
+# carname,gear,cyl together to be the id of each row, and the variables mpg,hp will be count
+print(head(carMelt))
+
+## Casting data frames:
+cylData <- dcast(carMelt, carname + gear ~ variable) # summarize the data by "carname" and "gear"
+print(head(cylData))
+```
+
+
+
+###Merging Data
+
+1. **merge():**
+
+Please check the example in `?merge`.
+
+2. **Use `join()` in the `plyr` pakcage:**
+
+```{r}
+library(plyr)
+df1 = data.frame(id=sample(1:10),x=rnorm(10))
+df2 = data.frame(id=sample(1:10),y=rnorm(10))
+arrange(join(df1,df2),id) # Only workable when they share same names.
+```
+
+3. **Join multiple data frames:**
+```{r}
+df3 = data.frame(id=sample(1:10),z=rnorm(10))
+dfList = list(df1,df2,df3)
+join_all(dfList)
+```
+
+
+
+###Edit Text Variables
+
+1. **To Upper/Lowwer:**
+```{r,eval=FALSE}
+tolower(names(cameraData))
+toupper()
+```
+
+
+2. **Split the string vector: `strsplit()`:**
+
+```{r,eval=FALSE}
+# There is a name whose value is "Location.1"
+# The output will split this name
+strsplit(names(cameraData), "\\.") #Since "." is reserved.
+```
+
+
+3. **Substitution:**
+```{r,eval=FALSE}
+#sub(pattern, replacement, x, ignore.case = FALSE, perl = FALSE,fixed = FALSE, useBytes = FALSE)
+# sub() will only substitute the first matching substring.
+sub("\\.","",names(cameraData))
+
+# Replace all the matching substrings:
+testName <- "this_is_a_test"
+print(gsub("_",""),testName)
+```
+
+
+4. **Find values(Pattern matching IMPORTANT):**
+```{r,eval=FALSE}
+#This pattern appears in the 4th,5th,36th record.
+grep("Alameda",cameraData$intersection)
+
+# This will return a vector indicating T/F : whether this pattern appears in this record.
+table(grepl("Alameda",cameraData$intersection))
+
+## instead of showing the index of appearance, it shows the content.
+grep("Alameda",cameraData$intersection, value = T)
+```
+
+
+5. **Useful string operations:**
+```{r}
+print(nchar("asdfasdfasdf"))
+print(substr("asdfasdfasdf",1,3))
+print(paste("Yaxin","Huang")) #Default sep = " "
+print(paste0("Yaxin","Huang"))
+library(stringr)
+print(str_trim("Yaxin     "))
+```
+
+
+
+###Regular Expressions
+
+Please check the code chunck below:
+```{r}
+## 1. Match the start of a line:
+s <- c("I think I will work from home tomorrow.",
+       "I don't think you are right.",
+       "I thin you thin?",
+       "Ithink you should do this.",
+       "I think and I think",
+       "Yes I think so.",
+       "Yes I think",
+       "i Think I am right.",
+       "I Think you are wrong.")
+print(grep("^I think",s))
+
+## 2. Match the end of a line:
+print(grep("I think$",s))
+
+## 3. List a set of characters we will accept at a given point in the match:
+## P.S. Range of characters/numbers: [a-z][a-zA-Z][0-9]
+print(grep("[Ii] [Tt][Hh][Ii][Nn][Kk]",s,value=T))
+
+## 4. Match character NOT in the indicated class:
+# "?" and "." NOT at the end.
+print(grep("[^?.]$",s))
+
+## 5. "." is used to refer to any character:
+print(grep("I thin.", s))
+
+## 6. "|" means can match either:
+print(grep("(I think)|(I Think)|(I thin)",s))
+
+## 7. Question mark indicates the expression is optional:
+# [Gg]eorge( [Ww]\.)? [Bb]ush    # Please Escape the dot.
+# It can match George W. Bush but George bush can also be matched.
+
+## 8. * and + : same as common sense.
+# (.*) will match any thing (even no string) that surrounded by parenthesizes.
+
+## 9. {} are referred to as interval quantifiers; Specify the MAX and MIN  number of occurrence of an expression.
+s1 <- c("Bush has historically won all major debates he's done.","in my view, Bus doen'st need these debates..", "bush does not need the debates?", "That's what Bush suporters are doing about the fierce great debate.")
+print(grep("[Bb]ush( +[^ ]+ +){1,5} debate",s1))
+
+#Not right but it avoid needing two spaces between two words.
+print(grep("[Bb]ush( +[^ ]+ *){1,5} debate",s)) 
+
+# {m,n} min m max n
+# {m} exactly m
+# {m,} at least m
+
+# 10. * is greedy so it always matches the longest possible string.
+# ^s(.*)s  will match "sitting at starbucks" (whole thing)
+```
+
+
+###Dealing with Dates
+```{r}
+d <- date();d
+class(d)
+
+d2 <- Sys.Date();d2
+class(d2)
+
+## Format dates:
+print(format(d2, "%a, %b %d"))
+
+# Notes:
+# %d = day as number
+# %a = abbreviated weekdays
+# %A = unabbreviated weekdays
+# %m = month (00-12)
+# %b = abbreviated month
+# %y = 2 digit year
+# %Y = 4 digit year
+
+## Create dates:
+print(as.Date(d,"%a %b %d %H:%M:%S %Y"))
+
+## Calculate date difference:
+z <- as.Date(c("1jan1960","2feb1990"),"%d%b%Y")
+print(z)
+
+print(z[1] - z[2])
+print(as.numeric(z[1] - z[2]))
+
+## Package `lubridate`
+library(lubridate)
+print(ymd("20140108"))
+print(mdy("06302014"))
+print(dmy("08/12-2014"))
+
+## Deal with times (`lubridate`)
+# > ymd_hms("2011/08-03 10-15:03")
+# [1] "2011-08-03 10:15:03 UTC"
+# 
+# > ymd_hms("2011/08-03 10-15:03", tz = "Pacific/Auckland")
+# [1] "2011-08-03 10:15:03 NZST"
+# ## Check : ?Sys.timezone
+```
+

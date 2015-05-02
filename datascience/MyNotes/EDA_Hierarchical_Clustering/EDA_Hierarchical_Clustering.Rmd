@@ -1,0 +1,152 @@
+---
+title: 'EDA: Hierarchical Clustering'
+author: "Yaxin"
+date: "Thursday, August 21, 2014"
+output: html_document
+---
+
+###Hierarchical Clustering
+
+1. **How do we define close?**
+
+By distance or similarity:
+  
+  * Continuous - Euclidean distance
+  * Continuous - correlation similarity
+  * Binary - Manhattan distance
+
+2. **Distance calculation:**
+
+`dist()`
+
+The input can be a numeric matrix/data frame. It views each row as a point. It calculates the distances between every pair of rows (points).
+```{r}
+m <- matrix(rnorm(25),5,5)
+print(dist(m))
+```
+
+
+3. **Hierarchical clustering:**
+
+`hclust()`
+```{r}
+dataFrame <- data.frame(x = rnorm(10),y = rnorm(10), z = runif(10,min=-1,max=2))
+distxy <- dist(dataFrame)
+hClustering <- hclust(distxy)
+plot(hClustering)
+```
+Then you can cut the tree at some level to decide how many clusters you want to produce.
+
+
+4. **Prettier dendrograms**
+
+You can refer to: <http://rpubs.com/gaston/dendrograms>
+
+```{r,eval=FALSE}
+## A script here produces pretty dendrograms:
+myplclust <- function( hclust, lab=hclust$labels, lab.col=rep(1,length(hclust$labels)), hang=0.1,...){
+ ## modifiction of plclust for plotting hclust objects *in colour*!
+ ## Copyright Eva KF Chan 2009
+ ## Arguments:
+ ##    hclust:    hclust object
+ ##    lab:        a character vector of labels of the leaves of the tree
+ ##    lab.col:    colour for the labels; NA=default device foreground colour
+ ##    hang:     as in hclust & plclust
+ ## Side effect:
+ ##    A display of hierarchical cluster with coloured leaf labels.
+ y <- rep(hclust$height,2)
+ x <- as.numeric(hclust$merge)
+ y <- y[which(x<0)]
+ x <- x[which(x<0)]
+ x <- abs(x)
+ y <- y[order(x)]
+ x <- x[order(x)]
+ plot( hclust, labels=FALSE, hang=hang, ... )
+ text( x=x, y=y[hclust$order]-(max(hclust$height)*hang), labels=lab[hclust$order], col=lab.col[hclust$order], srt=90, adj=c(1,0.5), xpd=NA, ... )
+}
+```
+
+```{r,eval=FALSE}
+## How to use this script:
+dataFrame <- data.frame(x=x,y=y)
+distxy <- dist(dataFrame)
+hClustering <- hclust(distxy)
+myplclust(hClustering, lab=rep(1:3, each=4), lab.col = rep(1:3,each=4))
+```
+
+
+5. **How to Merge Points Together?**
+
+One issue in hierarchical clustering is how to merge two points together.
+
+* Complete-linkage clustering: Calculate the distance between two farthest points in the two clusters.
+* Average-linkage clustering
+
+
+6. **Heat map** 
+
+`heatmap()`
+
+A heat map is a false color image (basically image(t(x))) with a dendrogram added to the left side and to the top. Typically, reordering of the rows and columns according to some set of values (row or column means) within the restrictions imposed by the dendrogram is carried out.
+
+
+###K-means Clustering
+
+1. **Main Idea of K-means Clustering**
+
+* A partitioning approach
+    - Fix a number of clusters
+    - Get "centroids" of each cluster
+    - Assign things to closest centroid
+    - Recalculate centroids
+* Requires
+    - A defined distance metric
+    - K
+    - An initial guess as to cluster centroids
+* Produces
+    - Final estimate of cluster centroids
+    - An assignment of each point to clusters
+
+2. **kmeans() in R**
+
+_Important parameters: x, centers, iter.max, nstart_
+```{r,eval=FALSE}
+dataFrame <- data.frame(x,y)
+kmeansObj <- kmeans(dataFrame,centers=3)
+```
+
+3. **How to Plot**
+```{r,eval=FALSE}
+plot(x,y, col=kmeansObj$cluster, pch=19,cex=2)
+points(kmeansObj$centers, col=1:3, pch=3, cex=3, lwd=3)
+names(kmeansObj)
+## [1] "cluster"      "centers"      "totss"        "withinss"     "tot.withinss" "betweenss"    
+## "size"         "iter"        
+## [9] "ifault"  
+```
+
+4. **Notes of K-means**
+
+* K-means requires a number of clusters
+    - Pick by eye/intuition
+    - Pick by cross validation/information theory..
+* K-means is not deterministic
+    - Different number of clusters
+    - Different number of iterations
+  
+  
+###Principal Components Analysis and Singular Value Decomposition
+
+_Matrix Data_
+```{r,eval=FALSE}
+set.seed(12345)
+par(mar=rep(0.2,4))
+dataMatrix <- matrix(rnorm(400), nrow=40)
+image(1:10, 1:40, t(dataMatrix)[, nrow(dataMatrix):1])
+```
+
+This will shows a heat-map like image.
+
+`image()`: Creates a grid of colored or gray-scale rectangles with colors corresponding to the values in z. This can be used to display three-dimensional or spatial data aka images. This is a generic function.
+
+`t()`: Transpose a matrix
